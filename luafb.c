@@ -44,6 +44,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <lauxlib.h>
 #include <lualib.h>
 
+#include <termios.h>
+#include <sys/ioctl.h>
+
 #define min(a,b) ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a < _b ? _a: _b; })
 #define max(a,b) ({ __typeof__(a) _a = (a); __typeof__(b) _b = (b); _a > _b ? _a: _b; })
 
@@ -58,7 +61,7 @@ memset32 (void *ptr, uint32_t val, size_t num)
     ((val >> 16) & 0xFF) == (val & 0xFF) &&
     ((val >>  8) & 0xFF) == (val & 0xFF) )
   {
-    memset(ptr, 0, num * sizeof(uint32_t));
+    memset(ptr, val & 0xFF, num * sizeof(uint32_t));
   }
   else
   {
@@ -70,7 +73,7 @@ memset32 (void *ptr, uint32_t val, size_t num)
 static uint32_t
 rgba (uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-  return a << 24 | r << 16 | g << 8 | b;
+  return (uint32_t)a << 24 | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b;
 }
 
 void *fb = NULL;
@@ -208,6 +211,9 @@ box (double x, double y, double w, double h)
 
   int wp = min(w * context->canvas->w, context->canvas->w - context->x);
   int hp = min(h * context->canvas->h, context->canvas->h - context->y);
+
+  if (w == -1 && h >= 0) wp = hp;
+  if (h == -1 && w >= 0) hp = wp;
 
   uint32_t p32 = rgba(context->r, context->g, context->b, context->a);
 
@@ -370,6 +376,10 @@ cb_canvas (lua_State *lua)
   require_args(__func__, 2);
   int w = lua_tonumber(lua, -2) * vinfo.xres;
   int h = lua_tonumber(lua, -1) * vinfo.yres;
+
+  if (w == -1 && h >= 0) w = h;
+  if (h == -1 && w >= 0) h = w;
+
   lua_pop(lua, 2);
   canvas_t *canvas = lua_newuserdata(lua, canvas_bytes(w, h));
   canvas->w = w;
@@ -639,12 +649,27 @@ int main (int argc, char *argv[])
   lua_settable(lua, -3);
   lua_pop(lua, 1);
 
+  struct termios old_tio, new_tio;
+
+  tcgetattr(fileno(stdin),&old_tio);
+  new_tio = old_tio;
+  new_tio.c_lflag &= (~ICANON & ~ECHO);
+  new_tio.c_cc[VTIME] = 0;
+  new_tio.c_cc[VMIN] = 1;
+  tcsetattr(fileno(stdin), TCSANOW, &new_tio);
+
+  printf("\e[?25l");
+
   if (luaL_dofile(lua, script) != 0)
   {
     perror("Error lua");
     perror(lua_tostring(lua, -1));
     exit(6);
   }
+
+  printf("\e[?25h");
+
+  tcsetattr(fileno(stdin), TCSANOW, &old_tio);
 
   munmap(fb, screensize);
   close(fbfd);
