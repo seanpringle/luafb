@@ -138,14 +138,18 @@ pop ()
 }
 
 static size_t
-canvas_bytes (size_t w, size_t h)
+canvas_bytes (int w, int h)
 {
+  if (w == -1 && h >= 0) w = h; 
+  if (h == -1 && w >= 0) h = w; 
   return sizeof(canvas_t) + max(1, w) * max(1, h) * sizeof(uint32_t);
 }
 
 static canvas_t*
 canvas_alloc (int w, int h)
 {
+  if (w == -1 && h >= 0) w = h; 
+  if (h == -1 && w >= 0) h = w; 
   canvas_t *c = calloc(1, canvas_bytes(w, h));
   ensure(c) errorf("canvas_alloc");
   c->w = w;
@@ -158,6 +162,8 @@ translate (double x, double y)
 {
   context->x += x * context->canvas->w;
   context->y += y * context->canvas->h;
+  if (x == -1 && y >= 0) context->x = context->y;
+  if (y == -1 && x >= 0) context->y = context->x;
 }
 
 static void
@@ -376,10 +382,6 @@ cb_canvas (lua_State *lua)
   require_args(__func__, 2);
   int w = lua_tonumber(lua, -2) * vinfo.xres;
   int h = lua_tonumber(lua, -1) * vinfo.yres;
-
-  if (w == -1 && h >= 0) w = h;
-  if (h == -1 && w >= 0) h = w;
-
   lua_pop(lua, 2);
   canvas_t *canvas = lua_newuserdata(lua, canvas_bytes(w, h));
   canvas->w = w;

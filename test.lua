@@ -36,16 +36,16 @@ while going do
   -- set the drawing color to white
   fb.color(white(opaque))
 
-  -- display some text
+  -- display some white text at x=0,y=0
   fb.print(0, 0, 'hello world')
   
-  -- draw a box
+  -- draw a white box 
   fb.box(0.25, 0.25, 0.1, same)
 
-  -- finish drawing on canvas
+  -- finish drawing on our canvas
   fb.pop()
 
-  -- copy canvas to the screen
+  -- copy our canvas to the screen
   fb.render(canvas)
 
   -- read one keyboard key
