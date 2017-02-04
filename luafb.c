@@ -160,10 +160,12 @@ canvas_alloc (int w, int h)
 static void
 translate (double x, double y)
 {
-  context->x += x * context->canvas->w;
-  context->y += y * context->canvas->h;
-  if (x == -1 && y >= 0) context->x = context->y;
-  if (y == -1 && x >= 0) context->y = context->x;
+  int xd = x * context->canvas->w;
+  int yd = y * context->canvas->h;
+  if (x == -1 && y >= 0) xd = yd;
+  if (y == -1 && x >= 0) yd = xd;
+  context->x += xd;
+  context->y += yd;
 }
 
 static void
@@ -238,6 +240,37 @@ box (double x, double y, double w, double h)
         context->canvas->b[location] = blend(context->canvas->b[location], p32);
       }
     }
+  }
+
+  pop();
+}
+
+static void
+line (double x1, double y1, double x2, double y2)
+{
+  push(NULL);
+  translate(x1, y1);
+
+  int wp = x2 * context->canvas->w;
+  int hp = y2 * context->canvas->h;
+
+  uint32_t p32 = rgba(context->r, context->g, context->b, context->a);
+
+  int i = context->x, j = context->y;
+
+  int dx = abs(wp-i), sx = i < wp ? 1 : -1;
+  int dy = abs(hp-j), sy = j < hp ? 1 : -1; 
+  int err = (dx > dy ? dx : -dy)/2, e2;
+ 
+  for (;;)
+  {
+    size_t location = i + (context->canvas->w * j);
+    context->canvas->b[location] = blend(context->canvas->b[location], p32);
+
+    if ((i == wp && j == hp) || i < 0 || j < 0 || i >= vinfo.xres || j >= vinfo.yres) break;
+    e2 = err;
+    if (e2 >-dx) { err -= dy; i += sx; }
+    if (e2 < dy) { err += dx; j += sy; }
   }
 
   pop();
@@ -489,6 +522,19 @@ cb_box (lua_State *lua)
   return 0;
 }
 
+int
+cb_line (lua_State *lua)
+{
+  require_args(__func__, 4);
+  double x1 = lua_tonumber(lua, -4);
+  double y1 = lua_tonumber(lua, -3);
+  double x2 = lua_tonumber(lua, -2);
+  double y2 = lua_tonumber(lua, -1);
+  lua_pop(lua, 4);
+  line(x1, y1, x2, y2);
+  return 0;
+}
+
 int cb_blit (lua_State *lua)
 {
   require_args(__func__, 3);
@@ -615,6 +661,10 @@ int main (int argc, char *argv[])
 
   lua_pushstring(lua, "box");
   lua_pushcfunction(lua, cb_box);
+  lua_settable(lua, -3);
+
+  lua_pushstring(lua, "line");
+  lua_pushcfunction(lua, cb_line);
   lua_settable(lua, -3);
 
   lua_pushstring(lua, "render");

@@ -42,6 +42,9 @@ while going do
   -- draw a white box 
   fb.box(0.25, 0.25, 0.1, same)
 
+  -- draw a white line
+  fb.line(0.5, 0.5, 0.6, 0.6)
+
   -- finish drawing on our canvas
   fb.pop()
 
